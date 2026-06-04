@@ -674,6 +674,43 @@ typedef struct opendal_list_options {
 } opendal_list_options;
 
 /**
+ * \brief The options for copy operations.
+ *
+ * Use `opendal_copy_options_new()` to construct and
+ * `opendal_copy_options_free()` to free.
+ */
+typedef struct opendal_copy_options {
+  /**
+   * Only copy if target does not exist; default false.
+   */
+  bool if_not_exists;
+  /**
+   * If-Match condition; NULL means unset.
+   */
+  const char *if_match;
+  /**
+   * Whether `source_content_length_hint` has been set.
+   */
+  bool has_source_content_length_hint;
+  /**
+   * Known content length of the source object.
+   */
+  uint64_t source_content_length_hint;
+  /**
+   * Concurrent copy operations. `0` means sequential copy.
+   */
+  uintptr_t concurrent;
+  /**
+   * Whether `chunk` has been set.
+   */
+  bool has_chunk;
+  /**
+   * Chunk size for segmented copy operations.
+   */
+  uintptr_t chunk;
+} opendal_copy_options;
+
+/**
  * \brief Metadata for **operator**, users can use this metadata to get information
  * of operator.
  */
@@ -830,6 +867,14 @@ typedef struct opendal_capability {
    * If operator supports copy.
    */
   bool copy;
+  /**
+   * If operator supports copy with if not exists.
+   */
+  bool copy_with_if_not_exists;
+  /**
+   * If operator supports copy with if match.
+   */
+  bool copy_with_if_match;
   /**
    * If operator supports rename.
    */
@@ -1843,6 +1888,34 @@ struct opendal_error *opendal_operator_copy(const struct opendal_operator *op,
                                             const char *src,
                                             const char *dest);
 
+/**
+ * \brief Blocking copy the object with options.
+ *
+ * Copy the object from `src` to `dest` blocking by `op`, using the provided
+ * `opendal_copy_options` to control the behavior, e.g. `if_not_exists` or
+ * `if_match` conditions.
+ *
+ * @param op The opendal_operator created previously
+ * @param src The designated source path you want to copy
+ * @param dest The designated destination path you want to copy
+ * @param opts The options for the copy operation; pass NULL to use defaults
+ * @see opendal_copy_options
+ * @return NULL if succeeds, otherwise it contains the error code and error message.
+ *
+ * # Safety
+ *
+ * * The memory pointed to by `src` and `dest` must contain a valid null terminator at the end of
+ *   the string.
+ *
+ * # Panic
+ *
+ * * If the `src` or `dest` points to NULL, this function panics, i.e. exits with information
+ */
+struct opendal_error *opendal_operator_copy_with(const struct opendal_operator *op,
+                                                 const char *src,
+                                                 const char *dest,
+                                                 const struct opendal_copy_options *opts);
+
 struct opendal_error *opendal_operator_check(const struct opendal_operator *op);
 
 /**
@@ -2192,6 +2265,42 @@ void opendal_read_options_set_override_cache_control(struct opendal_read_options
  */
 void opendal_read_options_set_override_content_disposition(struct opendal_read_options *opts,
                                                            const char *override_content_disposition);
+
+/**
+ * \brief Construct a heap-allocated opendal_copy_options with default values.
+ */
+struct opendal_copy_options *opendal_copy_options_new(void);
+
+/**
+ * \brief Free the heap memory used by opendal_copy_options.
+ */
+void opendal_copy_options_free(struct opendal_copy_options *opts);
+
+/**
+ * \brief Set if_not_exists.
+ */
+void opendal_copy_options_set_if_not_exists(struct opendal_copy_options *opts, bool if_not_exists);
+
+/**
+ * \brief Set If-Match.
+ */
+void opendal_copy_options_set_if_match(struct opendal_copy_options *opts, const char *if_match);
+
+/**
+ * \brief Set source_content_length_hint.
+ */
+void opendal_copy_options_set_source_content_length_hint(struct opendal_copy_options *opts,
+                                                         uint64_t source_content_length_hint);
+
+/**
+ * \brief Set concurrent.
+ */
+void opendal_copy_options_set_concurrent(struct opendal_copy_options *opts, uintptr_t concurrent);
+
+/**
+ * \brief Set chunk.
+ */
+void opendal_copy_options_set_chunk(struct opendal_copy_options *opts, uintptr_t chunk);
 
 /**
  * \brief Construct a heap-allocated opendal_operator_options

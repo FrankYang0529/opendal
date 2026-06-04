@@ -124,6 +124,10 @@ pub struct opendal_capability {
 
     /// If operator supports copy.
     pub copy: bool,
+    /// If operator supports copy with if not exists.
+    pub copy_with_if_not_exists: bool,
+    /// If operator supports copy with if match.
+    pub copy_with_if_match: bool,
 
     /// If operator supports rename.
     pub rename: bool,
@@ -276,6 +280,8 @@ impl From<core::Capability> for opendal_capability {
             delete_with_version: value.delete_with_version,
             delete_with_recursive: value.delete_with_recursive,
             copy: value.copy,
+            copy_with_if_not_exists: value.copy_with_if_not_exists,
+            copy_with_if_match: value.copy_with_if_match,
             rename: value.rename,
             list: value.list,
             list_with_limit: value.list_with_limit,

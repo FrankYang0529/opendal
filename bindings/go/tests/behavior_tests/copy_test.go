@@ -31,7 +31,7 @@ func testsCopy(cap *opendal.Capability) []behaviorTest {
 	if !cap.Read() || !cap.Write() || !cap.Copy() {
 		return nil
 	}
-	return []behaviorTest{
+	tests := []behaviorTest{
 		testCopyFileWithASCIIName,
 		testCopyFileWithNonASCIIName,
 		testCopyNonExistingSource,
@@ -40,7 +40,10 @@ func testsCopy(cap *opendal.Capability) []behaviorTest {
 		testCopySelf,
 		testCopyNested,
 		testCopyOverwrite,
+		testCopyWithIfNotExists,
+		testCopyWithIfMatch,
 	}
+	return tests
 }
 
 func testCopyFileWithASCIIName(assert *require.Assertions, op *opendal.Operator, fixture *fixture) {
@@ -155,4 +158,49 @@ func testCopyOverwrite(assert *require.Assertions, op *opendal.Operator, fixture
 	targetContent, err := op.Read(targetPath)
 	assert.Nil(err, "read must succeed")
 	assert.Equal(sourceContent, targetContent)
+}
+
+func testCopyWithIfNotExists(assert *require.Assertions, op *opendal.Operator, fixture *fixture) {
+	if !isCapEnabled(op.Info().GetFullCapability().CopyWithIfNotExists, "copy_with_if_not_exists") {
+		return
+	}
+
+	sourcePath, sourceContent, _ := fixture.NewFile()
+	assert.Nil(op.Write(sourcePath, sourceContent))
+
+	targetPath, targetContent, _ := fixture.NewFile()
+	assert.Nil(op.Write(targetPath, targetContent))
+
+	err := op.Copy(sourcePath, targetPath, opendal.CopyWithIfNotExists(true))
+	assert.NotNil(err)
+	assert.Equal(opendal.CodeConditionNotMatch, assertErrorCode(err))
+
+	bs, err := op.Read(targetPath)
+	assert.Nil(err, "read must succeed")
+	assert.Equal(targetContent, bs, "target must not be overwritten")
+}
+
+func testCopyWithIfMatch(assert *require.Assertions, op *opendal.Operator, fixture *fixture) {
+	if !isCapEnabled(op.Info().GetFullCapability().CopyWithIfMatch, "copy_with_if_match") {
+		return
+	}
+
+	sourcePath, sourceContent, _ := fixture.NewFile()
+	assert.Nil(op.Write(sourcePath, sourceContent))
+
+	targetPath := fixture.NewFilePath()
+	meta, err := op.Stat(sourcePath)
+	assert.Nil(err, "stat must succeed")
+	etag, ok := meta.ETag()
+	assert.True(ok, "etag must exist")
+
+	assert.Nil(op.Copy(sourcePath, targetPath, opendal.CopyWithIfMatch(etag)))
+	bs, err := op.Read(targetPath)
+	assert.Nil(err, "read must succeed")
+	assert.Equal(sourceContent, bs)
+
+	targetPath2 := fixture.NewFilePath()
+	err = op.Copy(sourcePath, targetPath2, opendal.CopyWithIfMatch("wrong-etag"))
+	assert.NotNil(err)
+	assert.Equal(opendal.CodeConditionNotMatch, assertErrorCode(err))
 }
